@@ -1,0 +1,10 @@
+# Backend Java/Maven 
+backend/target/ 
+*.class 
+# Frontend Node 
+frontend/node_modules/ 
+frontend/dist/ 
+# Divers 
+*.log 
+.DS_Store 
+reports/ 
