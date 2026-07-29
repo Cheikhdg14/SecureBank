@@ -40,6 +40,25 @@ public class User {
     @Column
     private String totpSecret;
 
+    @Column(nullable = false)
+    private int failedLoginAttempts = 0;
+
+    @Column
+    private LocalDateTime lockedUntil;
+
+    @Column
+    private LocalDateTime passwordChangedAt;
+
+    @Column(length = 500)
+    private String knownIps;
+
+    @JsonIgnore
+    @Column
+    private String resetPasswordToken;
+
+    @Column
+    private LocalDateTime resetPasswordTokenExpiry;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -56,6 +75,7 @@ public class User {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        passwordChangedAt = LocalDateTime.now();
     }
 
     @PreUpdate
@@ -63,7 +83,18 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getters
+    // ── Helpers métier ────────────────────────────
+    public boolean isLocked() {
+        return lockedUntil != null && LocalDateTime.now().isBefore(lockedUntil);
+    }
+
+    public boolean isPasswordExpired() {
+        if (passwordChangedAt == null) return false;
+        int days = role == Role.ROLE_ADMIN ? 30 : 90;
+        return passwordChangedAt.plusDays(days).isBefore(LocalDateTime.now());
+    }
+
+    // ── Getters ───────────────────────────────────
     public Long getId() { return id; }
     public String getEmail() { return email; }
     public String getPassword() { return password; }
@@ -73,24 +104,36 @@ public class User {
     public boolean isEnabled() { return enabled; }
     public boolean isTwoFactorEnabled() { return twoFactorEnabled; }
     public String getTotpSecret() { return totpSecret; }
+    public int getFailedLoginAttempts() { return failedLoginAttempts; }
+    public LocalDateTime getLockedUntil() { return lockedUntil; }
+    public LocalDateTime getPasswordChangedAt() { return passwordChangedAt; }
+    public String getKnownIps() { return knownIps; }
+    public String getResetPasswordToken() { return resetPasswordToken; }
+    public LocalDateTime getResetPasswordTokenExpiry() { return resetPasswordTokenExpiry; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public List<Account> getAccounts() { return accounts; }
 
-    // Setters
+    // ── Setters ───────────────────────────────────
     public void setId(Long id) { this.id = id; }
-    public void setEmail(String email) { this.email = email; }
-    public void setPassword(String password) { this.password = password; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
-    public void setPhone(String phone) { this.phone = phone; }
-    public void setRole(Role role) { this.role = role; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public void setEmail(String v) { this.email = v; }
+    public void setPassword(String v) { this.password = v; }
+    public void setFullName(String v) { this.fullName = v; }
+    public void setPhone(String v) { this.phone = v; }
+    public void setRole(Role v) { this.role = v; }
+    public void setEnabled(boolean v) { this.enabled = v; }
     public void setTwoFactorEnabled(boolean v) { this.twoFactorEnabled = v; }
-    public void setTotpSecret(String totpSecret) { this.totpSecret = totpSecret; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
-    public void setAccounts(List<Account> accounts) { this.accounts = accounts; }
+    public void setTotpSecret(String v) { this.totpSecret = v; }
+    public void setFailedLoginAttempts(int v) { this.failedLoginAttempts = v; }
+    public void setLockedUntil(LocalDateTime v) { this.lockedUntil = v; }
+    public void setPasswordChangedAt(LocalDateTime v) { this.passwordChangedAt = v; }
+    public void setKnownIps(String v) { this.knownIps = v; }
+    public void setResetPasswordToken(String v) { this.resetPasswordToken = v; }
+    public void setResetPasswordTokenExpiry(LocalDateTime v) { this.resetPasswordTokenExpiry = v; }
+    public void setUpdatedAt(LocalDateTime v) { this.updatedAt = v; }
+    public void setAccounts(List<Account> v) { this.accounts = v; }
 
-    // Builder
+    // ── Builder ───────────────────────────────────
     public static Builder builder() { return new Builder(); }
     public static class Builder {
         private final User u = new User();

@@ -20,14 +20,18 @@ public class TransactionService {
     private final AccountService accountService;
     private final OtpService otpService;
     private final AuditService auditService;
+    private final EmailService emailService;
 
     public TransactionService(TransactionRepository transactionRepository,
-                               AccountService accountService, OtpService otpService,
-                               AuditService auditService) {
+                               AccountService accountService,
+                               OtpService otpService,
+                               AuditService auditService,
+                               EmailService emailService) {
         this.transactionRepository = transactionRepository;
-        this.accountService = accountService;
-        this.otpService = otpService;
-        this.auditService = auditService;
+        this.accountService        = accountService;
+        this.otpService            = otpService;
+        this.auditService          = auditService;
+        this.emailService          = emailService;
     }
 
     @Transactional
@@ -35,11 +39,15 @@ public class TransactionService {
                                            BigDecimal amount, String description, String ip) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Account source = accountService.findByAccountNumber(sourceNumber);
-        if (!source.getOwner().getEmail().equals(email)) return ApiResponse.error("Accès refusé");
-        if (source.getBalance().compareTo(amount) < 0) return ApiResponse.error("Provision insuffisante");
-        if (source.getStatus() != Account.AccountStatus.ACTIVE) return ApiResponse.error("Compte source inactif");
+        if (!source.getOwner().getEmail().equals(email))
+            return ApiResponse.error("Accès refusé");
+        if (source.getBalance().compareTo(amount) < 0)
+            return ApiResponse.error("Provision insuffisante");
+        if (source.getStatus() != Account.AccountStatus.ACTIVE)
+            return ApiResponse.error("Compte source inactif");
         Account dest = accountService.findByAccountNumber(destNumber);
-        if (dest.getStatus() != Account.AccountStatus.ACTIVE) return ApiResponse.error("Compte destinataire inactif");
+        if (dest.getStatus() != Account.AccountStatus.ACTIVE)
+            return ApiResponse.error("Compte destinataire inactif");
 
         Transaction tx = Transaction.builder()
                 .reference(UUID.randomUUID().toString())
@@ -68,7 +76,7 @@ public class TransactionService {
             return ApiResponse.error("OTP invalide ou expiré");
         }
         Account source = tx.getSourceAccount();
-        Account dest = tx.getDestinationAccount();
+        Account dest   = tx.getDestinationAccount();
         source.setBalance(source.getBalance().subtract(tx.getAmount()));
         dest.setBalance(dest.getBalance().add(tx.getAmount()));
         accountService.updateBalance(source, source.getBalance());
@@ -76,16 +84,29 @@ public class TransactionService {
         tx.setStatus(Transaction.TransactionStatus.COMPLETED);
         tx.setProcessedAt(LocalDateTime.now());
         transactionRepository.save(tx);
-        auditService.log("TRANSFER_COMPLETED", email, reference, "Montant: " + tx.getAmount(), ip);
+        auditService.log("TRANSFER_COMPLETED", email, reference,
+                "Montant: " + tx.getAmount() + " FCFA", ip);
+
+        // ── Email de confirmation ─────────────────
+        emailService.sendTransferConfirmation(
+            email,
+            source.getOwner().getFullName(),
+            reference,
+            tx.getAmount().toPlainString(),
+            dest.getAccountNumber()
+        );
         return ApiResponse.ok("Virement effectué avec succès", reference);
     }
 
     public ApiResponse<?> getHistory(String accountNumber) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Account account = accountService.findByAccountNumber(accountNumber);
-        if (!account.getOwner().getEmail().equals(email)) return ApiResponse.error("Accès refusé");
-        List<Transaction> history = transactionRepository.findBySourceAccountOrderByCreatedAtDesc(account);
-        history.addAll(transactionRepository.findByDestinationAccountOrderByCreatedAtDesc(account));
+        if (!account.getOwner().getEmail().equals(email))
+            return ApiResponse.error("Accès refusé");
+        List<Transaction> history = transactionRepository
+                .findBySourceAccountOrderByCreatedAtDesc(account);
+        history.addAll(transactionRepository
+                .findByDestinationAccountOrderByCreatedAtDesc(account));
         history.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
         return ApiResponse.ok("Historique récupéré", history);
     }
