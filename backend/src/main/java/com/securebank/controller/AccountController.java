@@ -20,8 +20,10 @@ public class AccountController {
 
     @PostMapping
     @PreAuthorize("hasRole('CLIENT')")
-    public ResponseEntity<ApiResponse<?>> create(@RequestBody CreateBody body, HttpServletRequest req) {
-        return ResponseEntity.ok(accountService.createAccount(body.type, body.initialDeposit, getIp(req)));
+    public ResponseEntity<ApiResponse<?>> create(@RequestBody CreateBody body,
+                                                   HttpServletRequest req) {
+        return ResponseEntity.ok(accountService.createAccount(
+                body.type, body.initialDeposit, getIp(req)));
     }
 
     @GetMapping
@@ -32,8 +34,34 @@ public class AccountController {
 
     @GetMapping("/{accountNumber}/balance")
     @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
-    public ResponseEntity<ApiResponse<?>> balance(@PathVariable String accountNumber) {
+    public ResponseEntity<ApiResponse<?>> balance(
+            @PathVariable String accountNumber) {
         return ResponseEntity.ok(accountService.getBalance(accountNumber));
+    }
+
+    @PostMapping("/{accountNumber}/deposit")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<ApiResponse<?>> deposit(
+            @PathVariable String accountNumber,
+            @RequestBody DepositBody body,
+            HttpServletRequest req) {
+        return ResponseEntity.ok(accountService.deposit(
+                accountNumber, body.amount, getIp(req)));
+    }
+
+    @PostMapping("/{accountNumber}/request-deletion")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<ApiResponse<?>> requestDeletion(
+            @PathVariable String accountNumber,
+            HttpServletRequest req) {
+        return ResponseEntity.ok(accountService.requestDeletion(
+                accountNumber, getIp(req)));
+    }
+
+    @GetMapping("/deletion-requests")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<ApiResponse<?>> myDeletionRequests() {
+        return ResponseEntity.ok(accountService.getMyDeletionRequests());
     }
 
     private String getIp(HttpServletRequest req) {
@@ -41,5 +69,12 @@ public class AccountController {
         return (ip != null) ? ip.split(",")[0] : req.getRemoteAddr();
     }
 
-    static class CreateBody { public String type; public BigDecimal initialDeposit; }
+    static class CreateBody {
+        public String type;
+        public BigDecimal initialDeposit;
+    }
+
+    static class DepositBody {
+        public BigDecimal amount;
+    }
 }
